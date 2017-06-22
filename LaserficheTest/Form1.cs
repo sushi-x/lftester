@@ -43,8 +43,14 @@ namespace LaserficheTest
 
                 //GetDocumentByEntryID(mySession, 1253945);
                 //InsertDocument(mySession);
-                UpdateDocument(mySession, 1253945);
-                //GetAllDocuments(mySession);
+                //UpdateDocument(mySession, 1253945);
+                //GetAllDocumentsInFolder(mySession);
+
+                Dictionary<string, object> searchValues = new Dictionary<string, object>();
+                searchValues.Add("Cat1", 1);
+                searchValues.Add("Cat2", 2);
+                searchValues.Add("Cat4", 4);
+                GetAllDocumentsByTemplate(mySession, @"Laserfiche\catapult","Field Types",searchValues);
 
 
                 //GetAllTemplates(mySession);
@@ -76,10 +82,10 @@ namespace LaserficheTest
 
 
 
-        private void GetAllDocuments(Session session)
+        private void GetAllDocumentsInFolder(Session session)
         {
-
-            string myFolder = @"Laserfiche\z_Training Manual";
+            //https://answers.laserfiche.com/questions/89702/SDK-Search-with-Toolkit-RA#90132
+            string myFolder = @"Laserfiche\catapult";
             string searchParameters = String.Format("{{LF:Lookin=\"{0}\"}}", myFolder);
 
             Search lfSearch = new Search(session, searchParameters);
@@ -93,9 +99,6 @@ namespace LaserficheTest
             foreach (EntryListingRow item in searchResults)
             {
                 Int32 docId = (Int32)item[SystemColumn.Id];
-                //Console.Write(docId);
-                //DocumentInfo docInfo = new DocumentInfo(docId, session);
-
 
                 EntryInfo entryInfo = Entry.GetEntryInfo(docId, session);
                 if (entryInfo.EntryType == EntryType.Shortcut)
@@ -105,7 +108,52 @@ namespace LaserficheTest
                 if (entryInfo.EntryType == EntryType.Document)
                 {
                     DocumentInfo docInfo = (DocumentInfo)entryInfo;
-                    // check for docInfo.Name match?
+                    Console.WriteLine(docInfo.Name);
+
+                }
+
+            }
+
+        }
+
+
+        private void GetAllDocumentsByTemplate(Session session, string folderName, string templateName, Dictionary<string,object> searchValues)
+        {
+
+            string searchFolder = String.Format("{{LF:Lookin=\"{0}\"}}", folderName);
+            string searchParameters = string.Empty;
+            string searchFields = string.Empty;
+
+            foreach (KeyValuePair<string, object> kvPair in searchValues)
+            {
+                string tempSearch = string.Format(" & {{[{0}]:[{1}]=\"{2}\"}}", templateName,kvPair.Key.ToString(),kvPair.Value.ToString());
+                searchFields += tempSearch;
+            }
+
+            searchParameters = searchFolder + searchFields;
+
+            Search lfSearch = new Search(session, searchParameters);
+            SearchListingSettings settings = new SearchListingSettings();
+            settings.AddColumn(SystemColumn.Id);
+
+            lfSearch.Run();
+
+            SearchResultListing searchResults = lfSearch.GetResultListing(settings);
+
+            foreach (EntryListingRow item in searchResults)
+            {
+                Int32 docId = (Int32)item[SystemColumn.Id];
+
+                EntryInfo entryInfo = Entry.GetEntryInfo(docId, session);
+                if (entryInfo.EntryType == EntryType.Shortcut)
+                    entryInfo = Entry.GetEntryInfo(((ShortcutInfo)entryInfo).TargetId, session);
+
+                // Now entry should be the DocumentInfo
+                if (entryInfo.EntryType == EntryType.Document)
+                {
+                    DocumentInfo docInfo = (DocumentInfo)entryInfo;
+                    Console.WriteLine(docInfo.Name);
+
                 }
 
             }
@@ -241,16 +289,24 @@ namespace LaserficheTest
                 FolderInfo parentFolder = Folder.GetFolderInfo("\\catapult", session);
                 DocumentInfo document = new DocumentInfo(session);
                 document.Create(parentFolder, "jeffKNewDocument - " + DateTime.UtcNow.ToString(), EntryNameOption.None);
-                document.SetTemplate("General");
 
+                document.SetTemplate("Field Types");
                 FieldValueCollection fv = new FieldValueCollection();
-                //Add the metadata to the collection.  The first parameter is the field name and the
-                //second parameter is the value.  NOTE: The value is type Object...
-                fv.Add("Document", "This is the document name");        //This field is part of the General template
-                fv.Add("Type", "This is the document type");            //So is this field...
-                fv.Add("Category", "This is the document category");    //And so is this one...
-                fv.Add("Subject", "13-12345");                          //This field is not part of the template...
+                string[] items = { "1", "2", "3", "4" };
+                fv.Add("Cat1", items);
+                fv.Add("Cat2", 2);
+                fv.Add("Cat3", 3);
+                fv.Add("Cat4", 4);
+                fv.Add("Cat5", 5);
+                fv.Add("Cat6", System.DateTime.Parse("01/01/1950"));  //date?
+                fv.Add("Cat8", System.DateTime.Parse(new DateTime(2017,1,31,12,12,12).ToString()));  //date time?
+                fv.Add("Cat9", System.DateTime.Parse("6/22/2009 07:00:00 AM").ToString("HH:mm"));
 
+                //document.SetTemplate("General");
+                //FieldValueCollection fv = new FieldValueCollection();
+                //fv.Add("Document", "This is the document name");
+                //fv.Add("Type", "This is the document type");
+                //fv.Add("Category", "This is the document category");
 
                 document.SetFieldValues(fv);
                 document.Save();
